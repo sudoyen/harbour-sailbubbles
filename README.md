@@ -117,8 +117,6 @@ archives, without root and without sfdk. On an x86_64 Linux machine you need:
 - rustup, with `rustup target add aarch64-unknown-linux-gnu`
 - `protoc`, `cmake`, `git`, `curl`, `7z`, `make`, and SQLite's development
   files for the host tests (`libsqlite3-dev`)
-- a 32-bit x86 loader for the SDK's compilers (Debian/Ubuntu: `libc6-i386`,
-  Fedora: `glibc.i686`)
 - user namespaces (`unshare -r`), for rpmbuild in the SDK tooling; on Ubuntu
   24.04 and later: `sudo sysctl kernel.apparmor_restrict_unprivileged_userns=0`
 

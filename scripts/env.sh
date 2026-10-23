@@ -10,5 +10,3 @@ export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=$WRAP/sfos-aarch64-cc
 export CC_aarch64_unknown_linux_gnu=$WRAP/sfos-aarch64-cc
 export CXX_aarch64_unknown_linux_gnu=$WRAP/sfos-aarch64-cxx
 export AR_aarch64_unknown_linux_gnu=$WRAP/aarch64-meego-linux-gnu-ar
-# gcc starts cc1 and the like directly; they find their libraries here
-export LD_LIBRARY_PATH=$TOOLING/lib:$TOOLING/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}

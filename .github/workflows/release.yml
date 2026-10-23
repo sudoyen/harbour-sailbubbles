@@ -19,7 +19,7 @@ jobs:
       - name: Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y libc6-i386 p7zip-full cmake
+          sudo apt-get install -y p7zip-full cmake
           # rpmbuild runs in the SDK tooling inside a user namespace
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           curl -fsSL -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v27.2/protoc-27.2-linux-x86_64.zip

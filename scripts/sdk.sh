@@ -28,13 +28,19 @@ exec "$TOOLING/lib/ld-linux.so.2" --library-path "$TOOLING/lib:$TOOLING/usr/lib"
 WRAPPER
     chmod +x "$WRAP/${tool##*/}"
 done
-# gcc looks for as and ld here
-for tool in ar as ld ld.bfd ld.gold nm objcopy; do
+# gcc looks for as and ld here. It starts as itself, through -wrapper below;
+# collect2 starts ld directly, so ld is one of the wrappers.
+ln -sfn "$TOOLING/opt/cross/bin/aarch64-meego-linux-gnu-as" "$TOOLING/opt/cross/aarch64-meego-linux-gnu/bin/as"
+for tool in ar ld ld.bfd ld.gold nm objcopy; do
     ln -sfn "$WRAP/aarch64-meego-linux-gnu-$tool" "$TOOLING/opt/cross/aarch64-meego-linux-gnu/bin/$tool"
 done
+# -wrapper runs cc1, collect2 and as through the tooling's loader too; started
+# by the build machine's own 32-bit loader, if it has one, they crash or miss
+# their libraries
 for lang in cc:gcc cxx:g++; do
-    printf '#!/bin/sh\nexec "%s" --sysroot="%s" "$@"\n' "$WRAP/aarch64-meego-linux-gnu-${lang#*:}" "$TARGET" \
-        > "$WRAP/sfos-aarch64-${lang%%:*}"
+    printf '#!/bin/sh\nexec "%s" --sysroot="%s" -wrapper "%s,--library-path,%s" "$@"\n' \
+        "$WRAP/aarch64-meego-linux-gnu-${lang#*:}" "$TARGET" "$TOOLING/lib/ld-linux.so.2" \
+        "$TOOLING/lib:$TOOLING/usr/lib" > "$WRAP/sfos-aarch64-${lang%%:*}"
     chmod +x "$WRAP/sfos-aarch64-${lang%%:*}"
 done
 # rusqlite links -lsqlite3; the target only has the versioned library
