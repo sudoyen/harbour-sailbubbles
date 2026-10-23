@@ -1,0 +1,16 @@
+[Unit]
+Description=SailBubbles iMessage daemon
+After=network.target
+# keep restarting however often it fails, e.g. while offline after boot
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/usr/bin/sailbubbles-daemon
+Restart=on-failure
+RestartSec=30
+# Sailfish user services log nowhere by default
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=user-session.target

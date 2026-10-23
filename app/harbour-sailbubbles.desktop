@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Icon=harbour-sailbubbles
+Exec=harbour-sailbubbles
+Name=SailBubbles
+
+[X-Sailjail]
+Permissions=Contacts;Privileged;Pictures;Videos;Music;Documents;Downloads;Audio;MediaIndexing;SailBubbles
+OrganizationName=org.sailbubbles
+ApplicationName=harbour-sailbubbles

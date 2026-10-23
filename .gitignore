@@ -1,0 +1,4 @@
+/out/
+/app/build/
+/daemon/target/
+*.rpm

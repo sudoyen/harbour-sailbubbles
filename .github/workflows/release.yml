@@ -1,0 +1,79 @@
+# On a version tag (v0.2.0 and so on), builds the phone packages and the Mac
+# programs and publishes them as a GitHub release.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  phone:
+    runs-on: ubuntu-24.04
+    env:
+      SDK: ${{ github.workspace }}/sdk
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libc6-i386 p7zip-full cmake
+          # rpmbuild runs in the SDK tooling inside a user namespace
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          curl -fsSL -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v27.2/protoc-27.2-linux-x86_64.zip
+          sudo unzip -q -o protoc.zip -d /usr/local bin/protoc include/*
+          rustup toolchain install 1.99.1 --profile minimal --target aarch64-unknown-linux-gnu
+          rustup default 1.99.1
+      - run: scripts/sdk.sh
+      - run: scripts/build-heif.sh
+      - run: scripts/build.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phone
+          path: out/*.rpm
+
+  mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.24.4"
+      - name: Build universal binaries for Apple Silicon and Intel
+        run: |
+          mkdir dist
+          git clone https://github.com/beeper/mac-registration-provider provider
+          git -C provider checkout c9e8497d0d383c0a466371502af390f7a185e36b
+          git -C provider apply ../mac/mac-registration-provider.patch
+          (cd provider &&
+            CGO_ENABLED=1 GOARCH=arm64 go build -o ../dist/provider-arm64 &&
+            CGO_ENABLED=1 GOARCH=amd64 CC="clang -arch x86_64" go build -o ../dist/provider-amd64)
+          lipo -create -output dist/mac-registration-provider dist/provider-arm64 dist/provider-amd64
+          git clone https://github.com/beeper/registration-relay relay
+          git -C relay checkout c00b355110b2f8de9a8246feff8c7c3914ecd88c
+          (cd relay &&
+            CGO_ENABLED=0 GOARCH=arm64 go build -o ../dist/relay-arm64 ./cmd/registration_relay &&
+            CGO_ENABLED=0 GOARCH=amd64 go build -o ../dist/relay-amd64 ./cmd/registration_relay)
+          lipo -create -output dist/registration-relay dist/relay-arm64 dist/relay-amd64
+          cd dist && zip sailbubbles-mac.zip mac-registration-provider registration-relay
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mac
+          path: dist/sailbubbles-mac.zip
+
+  release:
+    needs: [phone, mac]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" \
+            --title "SailBubbles $GITHUB_REF_NAME" --notes "See the README for installing."

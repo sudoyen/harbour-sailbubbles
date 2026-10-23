@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.sailbubbles.harbour-sailbubbles
+Exec=/usr/bin/invoker --type=silica-qt5 --single-instance /usr/bin/harbour-sailbubbles

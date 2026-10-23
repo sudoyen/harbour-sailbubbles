@@ -1,0 +1,168 @@
+diff --git a/anisette/anisette.go b/anisette/anisette.go
+new file mode 100644
+index 0000000..e56d452
+--- /dev/null
++++ b/anisette/anisette.go
+@@ -0,0 +1,25 @@
++// Package anisette mints anisette headers on this Mac through AOSKit, so
++// sign-ins carry a machine ID that matches the Mac's own identity.
++package anisette
++
++//#cgo CFLAGS: -x objective-c -Wno-deprecated-declarations
++//#cgo LDFLAGS: -framework Foundation
++//#include "anisette.h"
++//#include <stdlib.h>
++import "C"
++import (
++	"encoding/json"
++	"errors"
++	"unsafe"
++)
++
++func Headers() (json.RawMessage, error) {
++	var cerr *C.char
++	out := C.anisetteHeadersJSON(&cerr)
++	if out == nil {
++		defer C.free(unsafe.Pointer(cerr))
++		return nil, errors.New(C.GoString(cerr))
++	}
++	defer C.free(unsafe.Pointer(out))
++	return json.RawMessage(C.GoString(out)), nil
++}
+diff --git a/anisette/anisette.h b/anisette/anisette.h
+new file mode 100644
+index 0000000..02c0ae2
+--- /dev/null
++++ b/anisette/anisette.h
+@@ -0,0 +1,3 @@
++#include <Foundation/Foundation.h>
++
++char *anisetteHeadersJSON(char **err);
+diff --git a/anisette/anisette.m b/anisette/anisette.m
+new file mode 100644
+index 0000000..d57b0bf
+--- /dev/null
++++ b/anisette/anisette.m
+@@ -0,0 +1,56 @@
++#include "anisette.h"
++#include <dlfcn.h>
++
++static char *fail(char **err, NSString *msg) {
++	*err = strdup(msg.UTF8String);
++	return NULL;
++}
++
++static id call(id target, NSString *selector) {
++	SEL sel = NSSelectorFromString(selector);
++	return [target respondsToSelector:sel] ? [target performSelector:sel] : nil;
++}
++
++// Same calls as rustpush's AOSKit provider (omnisette/src/aos_kit.rs).
++// Returns a malloc'd JSON object of anisette headers, or NULL with *err set.
++char *anisetteHeadersJSON(char **err) {
++	@autoreleasepool {
++		if (!dlopen("/System/Library/PrivateFrameworks/AOSKit.framework/AOSKit", RTLD_LAZY)
++				|| !dlopen("/System/Library/PrivateFrameworks/AuthKit.framework/AuthKit", RTLD_LAZY))
++			return fail(err, [NSString stringWithUTF8String:dlerror()]);
++
++		Class aos = NSClassFromString(@"AOSUtilities");
++		Class akDevice = NSClassFromString(@"AKDevice");
++		if (!aos || !akDevice)
++			return fail(err, @"AOSUtilities or AKDevice not found");
++
++		SEL otpSel = NSSelectorFromString(@"retrieveOTPHeadersForDSID:");
++		if (![aos respondsToSelector:otpSel])
++			return fail(err, @"AOSUtilities has no retrieveOTPHeadersForDSID:");
++		NSDictionary *otp = [aos performSelector:otpSel withObject:@"-2"];
++		id device = call(akDevice, @"currentDevice");
++
++		NSDictionary *values = @{
++			@"X-Apple-I-MD": otp[@"X-Apple-MD"] ?: [NSNull null],
++			@"X-Apple-I-MD-M": otp[@"X-Apple-MD-M"] ?: [NSNull null],
++			@"X-Apple-I-MD-LU": call(device, @"localUserUUID") ?: [NSNull null],
++			@"X-Mme-Device-Id": call(device, @"uniqueDeviceIdentifier") ?: [NSNull null],
++		};
++		for (NSString *key in values)
++			if (values[key] == [NSNull null])
++				return fail(err, [NSString stringWithFormat:@"AOSKit gave no %@", key]);
++
++		NSMutableDictionary *headers = [values mutableCopy];
++		[headers autorelease];
++		NSISO8601DateFormatter *iso = [[[NSISO8601DateFormatter alloc] init] autorelease];
++		headers[@"X-Apple-I-Client-Time"] = [iso stringFromDate:[NSDate date]];
++		headers[@"X-Apple-I-TimeZone"] = [[NSTimeZone localTimeZone] abbreviation] ?: @"UTC";
++		headers[@"X-Apple-Locale"] = [[NSLocale currentLocale] localeIdentifier];
++
++		NSError *jsonErr = nil;
++		NSData *json = [NSJSONSerialization dataWithJSONObject:headers options:0 error:&jsonErr];
++		if (!json)
++			return fail(err, jsonErr.localizedDescription);
++		return strndup(json.bytes, json.length);
++	}
++}
+diff --git a/nac/offsets.go b/nac/offsets.go
+index 64c565c..6b96eb3 100644
+--- a/nac/offsets.go
++++ b/nac/offsets.go
+@@ -250,6 +250,16 @@ var offsets_14_6_b1 = imdOffsetTuple{
+ 	},
+ }
+ 
++var offsets_26_5_1 = imdOffsetTuple{
++	arm64: imdOffsets{
++		ReferenceSymbol:            "IDSProtoKeyTransparencyTrustedServiceReadFrom",
++		ReferenceAddress:           0x712b4,
++		NACInitAddress:             0x88ba08,
++		NACKeyEstablishmentAddress: 0x7e3a44,
++		NACSignAddress:             0x7fd004,
++	},
++}
++
+ // offsets is a map from sha256 hash of identityservicesd to the function pointer offsets in that binary.
+ var offsets = map[[32]byte]imdOffsetTuple{
+ 	// macOS 10.13.6
+@@ -306,6 +316,8 @@ var offsets = map[[32]byte]imdOffsetTuple{
+ 	hexToByte32("482839377ea4780e90252aa48763800d90f272a3ba19b9ff6752ef9d7620df26"): offsets_14_5,
+ 	// macOS 14.6 Beta 1
+ 	hexToByte32("8eb0048ced3801d71a89495dcab198f038cd35c378ee059c52264c7b4107daa1"): offsets_14_6_b1,
++	// macOS 26.5.1 (25F80) Apple Silicon
++	hexToByte32("1c394440c227e27f0ba6a9167b0725f9ebddf3559a377ba2116a01d34536e560"): offsets_26_5_1,
+ }
+ 
+ type imdOffsetTuple struct {
+diff --git a/relay.go b/relay.go
+index ae6fbe9..a4317bc 100644
+--- a/relay.go
++++ b/relay.go
+@@ -15,6 +15,7 @@ import (
+ 	"nhooyr.io/websocket"
+ 	"nhooyr.io/websocket/wsjson"
+ 
++	"github.com/beeper/mac-registration-provider/anisette"
+ 	"github.com/beeper/mac-registration-provider/versions"
+ )
+ 
+@@ -42,6 +43,10 @@ type VersionsResponse struct {
+ 	Versions versions.Versions `json:"versions"`
+ }
+ 
++type AnisetteResponse struct {
++	Headers json.RawMessage `json:"headers"`
++}
++
+ type ValidationDataResponse struct {
+ 	Data       []byte    `json:"data"`
+ 	ValidUntil time.Time `json:"valid_until"`
+@@ -82,6 +87,12 @@ func handleCommand(ctx context.Context, req WebsocketRequest[json.RawMessage]) (
+ 		return VersionsResponse{Versions: versions.Current}, nil
+ 	case "get-validation-data":
+ 		return cachedGenerateData(ctx)
++	case "get-anisette-data":
++		headers, err := anisette.Headers()
++		if err != nil {
++			return nil, err
++		}
++		return AnisetteResponse{Headers: headers}, nil
+ 	default:
+ 		return nil, fmt.Errorf("unknown command %q", req.Command)
+ 	}
