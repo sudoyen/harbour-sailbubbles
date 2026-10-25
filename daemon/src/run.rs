@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -60,14 +61,16 @@ fn send_participants(db: &Db, chat_id: &str, mine: &[String]) -> Vec<String> {
     as_sent(db.chat_participants(chat_id).unwrap_or_default(), mine)
 }
 
+// rustpush returns once a device of the recipient has the message. The task it
+// leaves behind retries their other devices, an offline one for about 20
+// minutes, and must not hold up the messages queued after this one.
 async fn deliver(client: &IMClient, inst: &mut MessageInst) -> bool {
-    match client.send(inst).await {
-        Ok(job) => match job.handle {
-            Some(task) => matches!(task.await, Ok(Ok(()))),
-            None => true,
-        },
-        Err(_) => false,
-    }
+    client.send(inst).await.is_ok()
+}
+
+/// A message of ours unsent while it still waited in the queue.
+fn unsent_before_sending(db: &Mutex<Db>, id: &str) -> bool {
+    db.lock().unwrap().message(id).ok().flatten().is_some_and(|(m, _)| m.unsent)
 }
 
 async fn emit_status(emitter: &SignalEmitter<'_>, db: &Mutex<Db>, id: &str, status: Status) {
@@ -299,8 +302,13 @@ async fn send_group_photo(conn: &APSConnection, client: &IMClient, mine: &[Strin
 async fn send_loop(conn: APSConnection, client: Arc<IMClient>, mine: Vec<String>, db: Arc<Mutex<Db>>, root: PathBuf,
                    mut outbox: mpsc::Receiver<Outgoing>, emitter: SignalEmitter<'static>) {
     let me = mine[0].clone();
+    // unsent before they went out, so neither they nor their unsends are sent
+    let mut never_sent = HashSet::new();
     while let Some(out) = outbox.recv().await {
         match out {
+            Outgoing::Text { id, .. } | Outgoing::File { id, .. } if unsent_before_sending(&db, &id) => {
+                never_sent.insert(id);
+            }
             Outgoing::Text { id, chat_id, text, reply_to } => {
                 let msg = NormalMessage::new(text, MessageType::IMessage);
                 send_stored(&client, &mine, &db, &emitter, id, chat_id, msg, reply_to).await
@@ -330,6 +338,7 @@ async fn send_loop(conn: APSConnection, client: Arc<IMClient>, mine: Vec<String>
                 let edit = EditMessage { tuuid: message_id, edit_part: 0, new_parts };
                 send_to(&client, &sender, conv, Message::Edit(edit), None, "an edit").await;
             }
+            Outgoing::Unsend { message_id, .. } if never_sent.remove(&message_id) => {}
             Outgoing::Unsend { chat_id, message_id } => {
                 let (conv, sender) = chat_conversation(&db, &chat_id, &mine);
                 let unsend = UnsendMessage { tuuid: message_id, edit_part: 0 };
@@ -938,6 +947,17 @@ mod tests {
         assert_eq!(send_participants(&db, &chat, &mine), ["mailto:Me@Example.org", "tel:+1555"]);
         assert_eq!(our_handle(&db.chat_participants(&chat).unwrap(), &mine), "mailto:Me@Example.org");
         assert_eq!(our_handle(&["tel:+1555".to_string()], &mine), "mailto:Alias@Example.org");
+    }
+
+    #[test]
+    fn a_message_unsent_in_the_queue_is_not_sent() {
+        let db = Mutex::new(Db::in_memory());
+        db.lock().unwrap().add_message(&db::Message { id: "A", chat_id: "c", sender: "", text: "oops", ts: 1,
+                                                      status: Status::Sending, reply_to: None }, None, None).unwrap();
+        assert!(!unsent_before_sending(&db, "A"));
+        db.lock().unwrap().unsend_message("A").unwrap();
+        assert!(unsent_before_sending(&db, "A"));
+        assert!(!unsent_before_sending(&db, "unknown"));
     }
 
     #[test]
