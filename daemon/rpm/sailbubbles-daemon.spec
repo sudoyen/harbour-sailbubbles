@@ -1,5 +1,5 @@
 Name:       sailbubbles-daemon
-Version:    0.2.1
+Version:    0.2.2
 Release:    1
 Summary:    SailBubbles iMessage daemon for Sailfish OS, based on rustpush
 License:    SSPL-1.0 and LGPL-3.0-or-later

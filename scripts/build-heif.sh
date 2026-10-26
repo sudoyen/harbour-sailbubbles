@@ -25,8 +25,9 @@ TOOLCHAIN
 common="-DCMAKE_TOOLCHAIN_FILE=$BUILD/toolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HEIF_PREFIX"
 cmake -S "$SRC/libde265" -B "$BUILD/de265" $common -DENABLE_DECODER=OFF -DENABLE_ENCODER=OFF -DENABLE_SDL=OFF
 cmake --build "$BUILD/de265" --target install
-# only HEVC decoding through libde265, nothing else to ship
-cmake -S "$SRC/libheif" -B "$BUILD/heif" $common -DWITH_LIBDE265=ON -DWITH_X265=OFF -DWITH_AOM_DECODER=OFF \
+# only HEVC decoding through libde265, nothing else to ship; the daemon's
+# runpath does not cover libheif's own dependencies, hence $ORIGIN
+cmake -S "$SRC/libheif" -B "$BUILD/heif" $common -DCMAKE_INSTALL_RPATH='$ORIGIN' -DWITH_LIBDE265=ON -DWITH_X265=OFF -DWITH_AOM_DECODER=OFF \
     -DWITH_AOM_ENCODER=OFF -DWITH_DAV1D=OFF -DWITH_RAV1E=OFF -DWITH_SvtEnc=OFF -DWITH_KVAZAAR=OFF \
     -DWITH_OpenJPEG_DECODER=OFF -DWITH_OpenJPEG_ENCODER=OFF -DWITH_JPEG_DECODER=OFF -DWITH_JPEG_ENCODER=OFF \
     -DWITH_FFMPEG_DECODER=OFF -DWITH_VVDEC=OFF -DWITH_VVENC=OFF -DWITH_UVG266=OFF -DWITH_UNCOMPRESSED_CODEC=OFF \
