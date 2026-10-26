@@ -1,5 +1,5 @@
 Name:       harbour-sailbubbles
-Version:    0.2.0
+Version:    0.3.0
 Release:    1
 Summary:    SailBubbles: iMessage for Sailfish OS
 License:    SSPL-1.0

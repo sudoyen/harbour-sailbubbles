@@ -49,9 +49,8 @@ ListItem {
         }
     }
 
-    Item {
+    Avatar {
         id: avatar
-        readonly property string url: item.avatarOf(model.participants, model.icon, model.group)
         anchors {
             left: parent.left
             leftMargin: Theme.horizontalPageMargin
@@ -59,29 +58,9 @@ ListItem {
         }
         width: item.contentHeight - 2 * Theme.paddingSmall
         height: width
-
-        Rectangle {
-            anchors.fill: parent
-            visible: avatar.url === ""
-            color: Theme.rgba(Theme.highlightBackgroundColor, Theme.opacityFaint)
-
-            Icon {
-                anchors.centerIn: parent
-                source: model.group ? "image://theme/icon-m-users"
-                                                       : "image://theme/icon-m-person"
-            }
-        }
-
-        Image {
-            anchors.fill: parent
-            visible: avatar.url !== ""
-            source: avatar.url
-            sourceSize.width: width
-            sourceSize.height: height
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            clip: true
-        }
+        source: item.avatarOf(model.participants, model.icon, model.group)
+        name: model.title
+        group: model.group
     }
 
     Icon {

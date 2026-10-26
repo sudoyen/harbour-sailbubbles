@@ -51,6 +51,10 @@ QVariant MessageModel::data(const QModelIndex &index, int role) const
     case EditedRole: return m.edited;
     case UnsentRole: return m.unsent;
     case KindRole: return m.kind;
+    case NewDayRole:
+        return index.row() + 1 >= m_messages.size()
+            || QDateTime::fromMSecsSinceEpoch(m_messages.at(index.row() + 1).ts).date()
+               != QDateTime::fromMSecsSinceEpoch(m.ts).date();
     case AttachmentsRole: {
         QVariantList attachments;
         foreach (const AttachmentEntry &a, m.attachments) {
@@ -85,6 +89,7 @@ QHash<int, QByteArray> MessageModel::roleNames() const
     roles[UnsentRole] = "unsent";
     roles[AttachmentsRole] = "attachments";
     roles[KindRole] = "kind";
+    roles[NewDayRole] = "newDay";
     return roles;
 }
 
@@ -133,9 +138,12 @@ void MessageModel::loadMore()
     m_atStart = (uint)older.size() < PageSize;
     if (older.isEmpty())
         return;
+    const int oldest = m_messages.size() - 1;
     beginInsertRows(QModelIndex(), m_messages.size(), m_messages.size() + older.size() - 1);
     m_messages.append(older);
     endInsertRows();
+    // the row that was oldest now has an earlier message to compare with
+    emit dataChanged(index(oldest), index(oldest), QVector<int>() << FirstOfRunRole << NewDayRole);
 }
 
 int MessageModel::loadUntil(const QString &messageId)

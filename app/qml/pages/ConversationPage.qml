@@ -34,17 +34,6 @@ Page {
     readonly property int editWindowMs: 15 * 60 * 1000
     readonly property int unsendWindowMs: 2 * 60 * 1000
 
-    function statusText(status) {
-        switch (status) {
-        case Daemon.Sending: return qsTr("Sending...")
-        case Daemon.Sent: return qsTr("Sent")
-        case Daemon.Delivered: return qsTr("Delivered")
-        case Daemon.Read: return qsTr("Read")
-        case Daemon.Failed: return qsTr("Not sent")
-        }
-        return ""
-    }
-
     function reactionsText(reactions) {
         var parts = []
         for (var i = 0; i < reactions.length; i++)
@@ -311,24 +300,9 @@ Page {
             width: list.width
             readonly property bool event: model.kind !== ""
             highlighted: down || menuOpen || (page.focusShown && model.messageId === page.focusMessage)
-            contentHeight: event ? eventLabel.height
-                                 : senderLabel.height + replyLabel.height + files.height + bubble.height
-                                   + reactionsLabel.height + meta.height
+            readonly property real maxWidth: list.width * 0.75
+            contentHeight: content.height
             menu: event ? null : messageMenu
-
-            Label {
-                id: eventLabel
-                visible: item.event
-                x: Theme.horizontalPageMargin
-                width: parent.width - 2 * Theme.horizontalPageMargin
-                text: item.event ? page.eventText(model.kind, model.senderName, model.text) + "  " + Time.short(model.time)
-                                 : ""
-                wrapMode: Text.Wrap
-                horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: Theme.fontSizeExtraSmall
-                font.italic: true
-                color: Theme.secondaryColor
-            }
 
             Component {
                 id: messageMenu
@@ -403,102 +377,149 @@ Page {
                 }
             }
 
-            Label {
-                id: senderLabel
-                x: Theme.horizontalPageMargin
-                visible: !item.event && page.group && !model.mine && model.firstOfRun
-                height: visible ? implicitHeight : 0
-                text: model.senderName
-                font.pixelSize: Theme.fontSizeExtraSmall
-                color: Theme.highlightColor
-            }
-
-            Label {
-                id: replyLabel
-                anchors {
-                    top: senderLabel.bottom
-                    right: model.mine ? bubble.right : undefined
-                    left: model.mine ? undefined : bubble.left
-                }
-                width: Math.min(implicitWidth, list.width * 0.75)
-                visible: !item.event && model.replyTo !== ""
-                height: visible ? implicitHeight : 0
-                text: qsTr("Reply to: %1").arg(model.replyText || qsTr("an earlier message"))
-                truncationMode: TruncationMode.Fade
-                maximumLineCount: 1
-                font.pixelSize: Theme.fontSizeExtraSmall
-                color: Theme.secondaryColor
-            }
-
-            AttachmentGroup {
-                id: files
-                anchors.top: replyLabel.bottom
-                x: model.mine ? parent.width - width - Theme.horizontalPageMargin : Theme.horizontalPageMargin
-                attachments: model.unsent ? [] : model.attachments
-                maxWidth: list.width * 0.75
-                onPressAndHold: item.openMenu()
-            }
-
-            Rectangle {
-                id: bubble
-                anchors.top: files.bottom
-                visible: !item.event && (model.unsent || model.text !== "")
-                height: visible ? body.height + 2 * Theme.paddingSmall : 0
-                x: model.mine ? parent.width - width - Theme.horizontalPageMargin : Theme.horizontalPageMargin
-                width: body.width + 2 * Theme.paddingMedium
-                radius: Theme.paddingMedium
-                color: model.unsent ? "transparent"
-                     : model.mine ? Theme.rgba(Theme.highlightBackgroundColor, 0.4)
-                     : Theme.rgba(Theme.primaryColor, 0.1)
-                border.width: model.unsent ? 1 : 0
-                border.color: Theme.secondaryColor
+            Column {
+                id: content
+                width: parent.width
 
                 Label {
-                    id: body
-                    visible: bubble.visible
-                    x: Theme.paddingMedium
-                    y: Theme.paddingSmall
-                    width: Math.min(implicitWidth, list.width * 0.75)
-                    text: model.unsent ? (model.mine ? qsTr("You unsent a message") : qsTr("This message was unsent"))
-                                       : model.text
+                    visible: model.newDay
+                    width: parent.width
+                    height: visible ? implicitHeight + 2 * Theme.paddingMedium : 0
+                    text: Time.heading(model.time)
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryColor
+                }
+
+                Label {
+                    visible: item.event
+                    x: Theme.horizontalPageMargin
+                    width: parent.width - 2 * Theme.horizontalPageMargin
+                    text: item.event ? page.eventText(model.kind, model.senderName, model.text) + "  " + Time.clock(model.time)
+                                     : ""
                     wrapMode: Text.Wrap
-                    font.italic: model.unsent
-                    color: model.unsent ? Theme.secondaryColor
-                         : item.highlighted ? Theme.highlightColor : Theme.primaryColor
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    font.italic: true
+                    color: Theme.secondaryColor
                 }
-            }
 
-            Label {
-                id: reactionsLabel
-                anchors {
-                    top: bubble.bottom
-                    right: model.mine ? bubble.right : undefined
-                    left: model.mine ? undefined : bubble.left
+                Label {
+                    x: Theme.horizontalPageMargin
+                    visible: !item.event && page.group && !model.mine && model.firstOfRun
+                    text: model.senderName
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.highlightColor
                 }
-                width: Math.min(implicitWidth, list.width * 0.75)
-                visible: !item.event && model.reactions.length > 0
-                height: visible ? implicitHeight : 0
-                text: page.reactionsText(model.reactions)
-                wrapMode: Text.Wrap
-                horizontalAlignment: model.mine ? Text.AlignRight : Text.AlignLeft
-                font.pixelSize: Theme.fontSizeExtraSmall
-                color: Theme.highlightColor
-            }
 
-            Label {
-                id: meta
-                anchors {
-                    top: reactionsLabel.bottom
-                    right: model.mine ? bubble.right : undefined
-                    left: model.mine ? undefined : bubble.left
+                Rectangle {
+                    id: bubble
+                    visible: !item.event
+                    x: model.mine ? parent.width - width - Theme.horizontalPageMargin : Theme.horizontalPageMargin
+                    width: inner.width + 2 * inner.x
+                    height: inner.height + 2 * Theme.paddingSmall
+                    radius: Theme.paddingMedium
+                    color: model.unsent ? "transparent"
+                         : model.mine ? Theme.rgba(Theme.highlightBackgroundColor, 0.4)
+                         : Theme.rgba(Theme.primaryColor, 0.1)
+                    border.width: model.unsent ? 1 : 0
+                    border.color: Theme.secondaryColor
+
+                    Column {
+                        id: inner
+                        x: files.visible ? Theme.paddingSmall : Theme.paddingMedium
+                        y: Theme.paddingSmall
+                        spacing: Theme.paddingSmall
+
+                        Item {
+                            visible: model.replyTo !== ""
+                            width: replyLabel.x + replyLabel.width
+                            height: replyLabel.height
+
+                            Rectangle {
+                                width: 2
+                                height: parent.height
+                                color: Theme.highlightColor
+                            }
+
+                            Label {
+                                id: replyLabel
+                                x: Theme.paddingSmall
+                                width: Math.min(implicitWidth, item.maxWidth - x)
+                                text: model.replyText || qsTr("an earlier message")
+                                truncationMode: TruncationMode.Fade
+                                maximumLineCount: 1
+                                font.pixelSize: Theme.fontSizeExtraSmall
+                                color: Theme.secondaryColor
+                            }
+                        }
+
+                        AttachmentGroup {
+                            id: files
+                            visible: attachments.length > 0
+                            attachments: model.unsent ? [] : model.attachments
+                            maxWidth: item.maxWidth
+                            onPressAndHold: item.openMenu()
+                        }
+
+                        Label {
+                            visible: model.unsent || model.text !== ""
+                            width: Math.min(implicitWidth, item.maxWidth)
+                            text: model.unsent ? (model.mine ? qsTr("You unsent a message") : qsTr("This message was unsent"))
+                                               : model.text
+                            wrapMode: Text.Wrap
+                            font.italic: model.unsent
+                            color: model.unsent ? Theme.secondaryColor
+                                 : item.highlighted ? Theme.highlightColor : Theme.primaryColor
+                        }
+
+                        Row {
+                            x: inner.width - width
+                            spacing: Theme.paddingSmall
+
+                            Label {
+                                visible: model.edited
+                                text: qsTr("Edited")
+                                font.pixelSize: Theme.fontSizeTiny
+                                color: Theme.secondaryColor
+                            }
+
+                            Label {
+                                id: timeLabel
+                                text: model.mine && model.status === Daemon.Failed ? qsTr("Not sent") : Time.clock(model.time)
+                                font.pixelSize: Theme.fontSizeTiny
+                                color: model.mine && model.status === Daemon.Failed ? Theme.errorColor : Theme.secondaryColor
+                            }
+
+                            StatusTicks {
+                                visible: model.mine && !model.unsent
+                                anchors.verticalCenter: timeLabel.verticalCenter
+                                size: timeLabel.height
+                                status: model.status
+                            }
+                        }
+                    }
                 }
-                visible: !item.event
-                height: visible ? implicitHeight : 0
-                text: Time.full(model.time)
-                      + (model.edited ? "  " + qsTr("Edited") : "")
-                      + (model.mine && !model.unsent ? "  " + statusText(model.status) : "")
-                font.pixelSize: Theme.fontSizeTiny
-                color: model.mine && model.status === Daemon.Failed ? Theme.errorColor : Theme.secondaryColor
+
+                Rectangle {
+                    visible: !item.event && model.reactions.length > 0
+                    x: model.mine ? bubble.x + bubble.width - width : bubble.x
+                    width: reactionsLabel.width + 2 * Theme.paddingMedium
+                    height: reactionsLabel.height + Theme.paddingSmall
+                    radius: height / 2
+                    color: Theme.rgba(Theme.highlightBackgroundColor, 0.25)
+
+                    Label {
+                        id: reactionsLabel
+                        anchors.centerIn: parent
+                        width: Math.min(implicitWidth, item.maxWidth)
+                        text: page.reactionsText(model.reactions)
+                        wrapMode: Text.Wrap
+                        font.pixelSize: Theme.fontSizeExtraSmall
+                        color: Theme.highlightColor
+                    }
+                }
             }
         }
 

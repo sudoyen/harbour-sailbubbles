@@ -26,3 +26,17 @@ function full(time) {
     var clock = Format.formatDate(time, Formatter.TimeValue)
     return daysAgo(time) === 0 ? clock : day(time) + " " + clock
 }
+
+// A divider between the days of a chat.
+function heading(time) {
+    var days = daysAgo(time)
+    if (days === 0)
+        return qsTr("Today")
+    if (days === 1)
+        return qsTr("Yesterday")
+    return Format.formatDate(time, Formatter.DateFull)
+}
+
+function clock(time) {
+    return Format.formatDate(time, Formatter.TimeValue)
+}

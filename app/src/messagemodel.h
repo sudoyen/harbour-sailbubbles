@@ -16,7 +16,7 @@ public:
     enum Roles {
         MessageIdRole = Qt::UserRole + 1, TextRole, TimeRole, StatusRole, MineRole,
         SenderNameRole, FirstOfRunRole, ReactionsRole, ReplyToRole, ReplyTextRole, EditedRole, UnsentRole,
-        AttachmentsRole, KindRole
+        AttachmentsRole, KindRole, NewDayRole
     };
 
     explicit MessageModel(QObject *parent = 0);
