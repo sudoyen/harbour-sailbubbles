@@ -447,7 +447,8 @@ Page {
                                 id: replyLabel
                                 x: Theme.paddingSmall
                                 width: Math.min(implicitWidth, item.maxWidth - x)
-                                text: model.replyText || qsTr("an earlier message")
+                                text: model.replyText ? emoji.styled(model.replyText, font.pixelSize) : qsTr("an earlier message")
+                                textFormat: Text.StyledText
                                 truncationMode: TruncationMode.Fade
                                 maximumLineCount: 1
                                 font.pixelSize: Theme.fontSizeExtraSmall
@@ -467,7 +468,8 @@ Page {
                             visible: model.unsent || model.text !== ""
                             width: Math.min(implicitWidth, item.maxWidth)
                             text: model.unsent ? (model.mine ? qsTr("You unsent a message") : qsTr("This message was unsent"))
-                                               : model.text
+                                               : emoji.styled(model.text, font.pixelSize)
+                            textFormat: model.unsent ? Text.PlainText : Text.StyledText
                             wrapMode: Text.Wrap
                             font.italic: model.unsent
                             color: model.unsent ? Theme.secondaryColor
@@ -514,7 +516,8 @@ Page {
                         id: reactionsLabel
                         anchors.centerIn: parent
                         width: Math.min(implicitWidth, item.maxWidth)
-                        text: page.reactionsText(model.reactions)
+                        text: emoji.styled(page.reactionsText(model.reactions), font.pixelSize)
+                        textFormat: Text.StyledText
                         wrapMode: Text.Wrap
                         font.pixelSize: Theme.fontSizeExtraSmall
                         color: Theme.highlightColor

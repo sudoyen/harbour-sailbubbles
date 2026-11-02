@@ -100,7 +100,8 @@ ListItem {
             top: parent.top
             topMargin: Theme.paddingSmall
         }
-        text: model.title
+        text: emoji.styled(model.title, font.pixelSize)
+        textFormat: Text.StyledText
         truncationMode: TruncationMode.Fade
         color: model.unread > 0 || item.highlighted ? Theme.highlightColor : Theme.primaryColor
     }
@@ -124,7 +125,8 @@ ListItem {
             rightMargin: unreadBadge.visible ? Theme.paddingMedium : 0
             top: titleLabel.bottom
         }
-        text: model.lastText
+        text: emoji.styled(model.lastText, font.pixelSize)
+        textFormat: Text.StyledText
         truncationMode: TruncationMode.Fade
         maximumLineCount: 1
         font.pixelSize: Theme.fontSizeSmall

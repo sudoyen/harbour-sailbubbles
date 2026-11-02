@@ -8,13 +8,13 @@ MOC      = $(TOOLING)/lib/ld-linux.so.2 --library-path $(TOOLING)/lib:$(TOOLING)
 QTINC    = $(SYSROOT)/usr/include/qt5
 
 CXXFLAGS = -std=c++11 -O2 -fPIC -Wall -Wextra -DQT_NO_DEBUG \
-           -isystem $(QTINC) $(addprefix -isystem $(QTINC)/,QtCore QtGui QtQml QtQuick QtDBus QtContacts) \
+           -isystem $(QTINC) $(addprefix -isystem $(QTINC)/,QtCore QtGui QtQml QtQuick QtDBus QtContacts QtSvg) \
            -isystem $(SYSROOT)/usr/include/sailfishapp
-LDLIBS   = -lsailfishapp -lQt5Quick -lQt5Qml -lQt5DBus -lQt5Contacts -lQt5Gui -lQt5Core
+LDLIBS   = -lsailfishapp -lQt5Quick -lQt5Qml -lQt5DBus -lQt5Contacts -lQt5Svg -lQt5Gui -lQt5Core
 LDFLAGS  = -L$(SYSROOT)/usr/lib64 -Wl,-rpath-link=$(SYSROOT)/usr/lib64:$(SYSROOT)/lib64
 
-HEADERS = src/daemon.h src/chatmodel.h src/messagemodel.h src/contactnames.h src/appservice.h
-SOURCES = src/main.cpp src/daemon.cpp src/chatmodel.cpp src/messagemodel.cpp src/contactnames.cpp src/appservice.cpp
+HEADERS = src/daemon.h src/chatmodel.h src/messagemodel.h src/contactnames.h src/appservice.h src/emoji.h
+SOURCES = src/main.cpp src/daemon.cpp src/chatmodel.cpp src/messagemodel.cpp src/contactnames.cpp src/appservice.cpp src/emoji.cpp
 OBJECTS = $(SOURCES:src/%.cpp=build/%.o) $(HEADERS:src/%.h=build/moc_%.o)
 
 build/harbour-sailbubbles: $(OBJECTS)

@@ -10,6 +10,7 @@
 #include "chatmodel.h"
 #include "contactnames.h"
 #include "daemon.h"
+#include "emoji.h"
 #include "messagemodel.h"
 
 int main(int argc, char *argv[])
@@ -27,6 +28,10 @@ int main(int argc, char *argv[])
     service.registerOnBus();
 
     QScopedPointer<QQuickView> view(SailfishApp::createView());
+    // the engine owns its image providers
+    Emoji *emoji = new Emoji;
+    view->engine()->addImageProvider("emoji", emoji);
+    view->rootContext()->setContextProperty("emoji", emoji);
     view->rootContext()->setContextProperty("daemon", &daemon);
     view->rootContext()->setContextProperty("chatModel", &chats);
     view->rootContext()->setContextProperty("archivedChats", &archived);
